@@ -28,6 +28,5 @@ public class Question {
     @CreatedDate
     private Instant createdAt;
 
-    @LastModifiedDate
-    private Instant updatedAt;
+    private List<Instant> updateHistory;
 }

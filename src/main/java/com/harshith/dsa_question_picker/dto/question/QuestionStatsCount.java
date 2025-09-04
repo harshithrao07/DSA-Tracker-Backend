@@ -7,6 +7,7 @@ public record QuestionStatsCount(
         long solvedQuestions,
         long remQuestions,
         long markedForRevision,
-        List<QuestionStatsCountDifficulty> questionStatsCountDifficulties
+        List<QuestionStatsCountDifficulty> questionStatsCountDifficulties,
+        List<QuestionStatsCountTopic> questionStatsCountTopics
 ) {
 }
