@@ -55,11 +55,6 @@ public class QuestionsController {
         return questionsService.deleteQuestion(questionId);
     }
 
-    @GetMapping("/stats-count")
-    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount() {
-        return questionsService.getQuestionStatsCount();
-    }
-
     @GetMapping("/random")
     public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getRandomQuestions(
             @RequestParam(name = "topics", required = false) List<String> topics,
@@ -69,4 +64,15 @@ public class QuestionsController {
     ) {
         return questionsService.getRandomQuestions(topics, difficulty, markedForRevision, count);
     }
+
+    @GetMapping("/timeline/{questionId}")
+    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(@PathVariable("questionId") String questionId) {
+        return questionsService.getQuestionTimeline(questionId);
+    }
+
+    @PostMapping("/autofill")
+    public ResponseEntity<ApiResponseDTO<QuestionAutofillDTO>> autofillQuestion(@Valid @RequestBody AutofillRequestDTO autofillRequestDTO) {
+        return questionsService.autofillQuestion(autofillRequestDTO);
+    }
+
 }

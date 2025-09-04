@@ -9,7 +9,6 @@ import com.harshith.dsa_question_picker.model.Topic;
 import com.harshith.dsa_question_picker.repository.NoteRepository;
 import com.harshith.dsa_question_picker.repository.QuestionRepository;
 import com.harshith.dsa_question_picker.repository.TopicRepository;
-import com.mongodb.BasicDBObject;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
-import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
@@ -40,6 +38,7 @@ public class QuestionsService {
     private final QuestionRepository questionRepository;
     private final NoteRepository noteRepository;
     private final TopicRepository topicRepository;
+    private final QuestionAutofillService autofillService;
 
     public ResponseEntity<ApiResponseDTO<AllQuestionsDTO>> getAllQuestion(int page, int pageSize, String key, List<String> topics, String difficulty, String status, String sortBy, String sortDir) {
         try {
@@ -202,68 +201,6 @@ public class QuestionsService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount() {
-        try {
-            long totalQuestions = questionRepository.count();
-            long solvedQuestions = questionRepository.countBySolved(true);
-            long remQuestions = questionRepository.countBySolved(false);
-            long markedForRevision = questionRepository.countByReviseLater(true);
-
-            Aggregation aggBasedOnDifficulty = Aggregation.newAggregation(
-                    Aggregation.group("difficulty")
-                            .count().as("totalQuestions")
-                            .sum(ConditionalOperators.when(Criteria.where("solved").is(true)).then(1).otherwise(0)).as("solvedQuestions")
-                            .sum(ConditionalOperators.when(Criteria.where("solved").is(false)).then(1).otherwise(0)).as("remQuestions"),
-                    Aggregation.project("totalQuestions", "solvedQuestions", "remQuestions")
-                            .and("_id").as("name")
-            );
-
-            AggregationResults<QuestionStatsCountDifficulty> resultsBasedOnDifficulty =
-                    mongoTemplate.aggregate(aggBasedOnDifficulty, "questions", QuestionStatsCountDifficulty.class);
-
-            List<QuestionStatsCountDifficulty> questionStatsCountDifficulties = resultsBasedOnDifficulty.getMappedResults();
-
-            Aggregation aggBasedOnTopic = Aggregation.newAggregation(
-                    Aggregation.unwind("topicIds"),
-                    Aggregation.group("topicIds", "difficulty")
-                            .count().as("totalQuestions")
-                            .sum(ConditionalOperators.when(Criteria.where("solved").is(true)).then(1).otherwise(0)).as("solvedQuestions")
-                            .sum(ConditionalOperators.when(Criteria.where("solved").is(false)).then(1).otherwise(0)).as("remQuestions"),
-                    Aggregation.group("_id.topicIds")
-                            .sum("totalQuestions").as("totalQuestions")
-                            .sum("solvedQuestions").as("solvedQuestions")
-                            .sum("remQuestions").as("remQuestions")
-                            .push(
-                                    new BasicDBObject("name", "$_id.difficulty")
-                                            .append("totalQuestions", "$totalQuestions")
-                                            .append("solvedQuestions", "$solvedQuestions")
-                                            .append("remQuestions", "$remQuestions")
-                            ).as("questionStatsCountDifficulties"),
-                    Aggregation.project("totalQuestions", "solvedQuestions", "remQuestions", "questionStatsCountDifficulties")
-                            .and("_id").as("id")
-            );
-
-            AggregationResults<QuestionStatsCountTopic> resultsBasedOnTopic =
-                    mongoTemplate.aggregate(aggBasedOnTopic, "questions", QuestionStatsCountTopic.class);
-
-            List<QuestionStatsCountTopic> questionStatsCountTopics = resultsBasedOnTopic.getMappedResults();
-
-            QuestionStatsCount questionStatsCount = new QuestionStatsCount(
-                    totalQuestions,
-                    solvedQuestions,
-                    remQuestions,
-                    markedForRevision,
-                    questionStatsCountDifficulties,
-                    questionStatsCountTopics
-            );
-
-            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, questionStatsCount));
-        } catch (Exception e) {
-            log.error("An exception has occurred {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
-        }
-    }
-
     public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getRandomQuestions(
             List<String> topicNames,
             Difficulty difficulty,
@@ -318,7 +255,6 @@ public class QuestionsService {
                     .toList();
 
             return ResponseEntity.ok(new ApiResponseDTO<>(true, null, response));
-
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -326,4 +262,29 @@ public class QuestionsService {
         }
     }
 
+    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(String questionId) {
+        try {
+            Question question = questionRepository.findById(UUID.fromString(questionId)).orElse(null);
+            if (question == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Question with id:" + questionId + " does not exist", null));
+            }
+
+            QuestionTimelineDTO questionTimelineDTO = objectMapper.convertValue(question, QuestionTimelineDTO.class);
+            return ResponseEntity.ok(new ApiResponseDTO<>(true, null, questionTimelineDTO));
+        } catch (Exception e) {
+            log.error("An exception has occurred {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
+        }
+    }
+
+    public ResponseEntity<ApiResponseDTO<QuestionAutofillDTO>> autofillQuestion(@Valid AutofillRequestDTO autofillRequestDTO) {
+        try {
+            return autofillService.autofillQuestion(autofillRequestDTO);
+        } catch (Exception e) {
+            log.error("An exception has occurred {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
+        }
+    }
 }
