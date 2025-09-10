@@ -10,9 +10,11 @@ import java.util.UUID;
 
 @Repository
 public interface TopicRepository extends MongoRepository<Topic, UUID> {
-    boolean existsByName(String name);
+    List<Topic> findByCreatedBy(UUID createdBy);
 
-    Optional<Topic> findByName(String name);
+    boolean existsByNameAndCreatedBy(String name, UUID createdBy);
 
-    List<Topic> findByNameIn(List<String> names);
+    Optional<Topic> findByNameAndCreatedBy(String name, UUID createdBy);
+
+    List<Topic> findByNameInAndCreatedBy(List<String> names, UUID createdBy);
 }

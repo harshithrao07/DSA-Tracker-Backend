@@ -8,7 +8,6 @@ import com.harshith.dsa_question_picker.service.autofill.GeeksForGeeksFetcher;
 import com.harshith.dsa_question_picker.service.autofill.LeetCodeFetcher;
 import com.harshith.dsa_question_picker.utils.Utility;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

@@ -40,7 +40,7 @@ public class QuestionsService {
     private final TopicRepository topicRepository;
     private final QuestionAutofillService autofillService;
 
-    public ResponseEntity<ApiResponseDTO<AllQuestionsDTO>> getAllQuestion(int page, int pageSize, String key, List<String> topics, String difficulty, String status, String sortBy, String sortDir) {
+    public ResponseEntity<ApiResponseDTO<AllQuestionsDTO>> getAllQuestion(int page, int pageSize, String key, List<String> topics, String difficulty, String status, String sortBy, String sortDir, UUID createdBy) {
         try {
             Sort sort = Sort.by(sortBy);
             sort = sortDir.equals("desc") ? sort.descending() : sort.ascending();
@@ -54,8 +54,8 @@ public class QuestionsService {
 
             if (topics != null && !topics.isEmpty()) {
                 topics.forEach(topic -> {
-                    if (topicRepository.existsByName(topic)) {
-                        Optional<Topic> topicOptional = topicRepository.findByName(topic);
+                    if (topicRepository.existsByNameAndCreatedBy(topic, createdBy)) {
+                        Optional<Topic> topicOptional = topicRepository.findByNameAndCreatedBy(topic, createdBy);
                         topicOptional.ifPresent(value -> query.addCriteria(Criteria.where("topics").in(value.getId())));
                     }
                 });
@@ -79,15 +79,17 @@ public class QuestionsService {
                 }
             }
 
+            query.addCriteria(Criteria.where("createdBy").is(createdBy));
+
             List<Question> questions = mongoTemplate.find(query, Question.class);
 
             List<QuestionResponseDTO> questionResponseDTOS = questions.stream()
                     .map(question -> objectMapper.convertValue(question, QuestionResponseDTO.class))
                     .toList();
 
-            long totalQuestions = questionRepository.count();
-            long solvedQuestions = questionRepository.countBySolved(true);
-            long remQuestions = questionRepository.countBySolved(false);
+            long totalQuestions = questionRepository.countByCreatedBy(createdBy);
+            long solvedQuestions = questionRepository.countByCreatedByAndSolved(createdBy, true);
+            long remQuestions = questionRepository.countByCreatedByAndSolved(createdBy, false);
 
             AllQuestionsDTO allQuestionsDTO = new AllQuestionsDTO(totalQuestions, solvedQuestions, remQuestions, questionResponseDTOS);
 
@@ -98,9 +100,9 @@ public class QuestionsService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> addQuestion(@Valid PostQuestionDTO postQuestionDTO) {
+    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> addQuestion(@Valid PostQuestionDTO postQuestionDTO, UUID createdBy) {
         try {
-            if (questionRepository.existsByTitle(postQuestionDTO.title())) {
+            if (questionRepository.existsByTitleAndCreatedBy(postQuestionDTO.title(), createdBy)) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiResponseDTO<>(false, "Problem with the same title already exists", null));
             }
 
@@ -110,20 +112,22 @@ public class QuestionsService {
 
             Question question = objectMapper.convertValue(postQuestionDTO, Question.class);
             question.setId(UUID.randomUUID());
-            question = questionRepository.save(question);
+            question.setCreatedBy(createdBy);
 
             if (postQuestionDTO.note() != null && !postQuestionDTO.note().isBlank()) {
                 Note note = Note.builder()
                         .id(UUID.randomUUID())
                         .questionId(question.getId())
                         .text(postQuestionDTO.note())
+                        .createdBy(createdBy)
                         .build();
 
                 Note savedNote = noteRepository.save(note);
 
                 question.setNoteId(savedNote.getId());
-                question = questionRepository.save(question);
             }
+
+            question = questionRepository.save(question);
 
             QuestionResponseDTO questionResponseDTO = objectMapper.convertValue(question, QuestionResponseDTO.class);
             return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, questionResponseDTO));
@@ -133,9 +137,9 @@ public class QuestionsService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> updateQuestion(@Valid UpdateQuestionDTO updateQuestionDTO, String questionId) {
+    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> updateQuestion(@Valid UpdateQuestionDTO updateQuestionDTO, String questionId, UUID createdBy) {
         try {
-            Optional<Question> question = questionRepository.findById(UUID.fromString(questionId));
+            Optional<Question> question = questionRepository.findByIdAndCreatedBy(UUID.fromString(questionId), createdBy);
             if (question.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Question with id:" + questionId + " does not exist", null));
             }
@@ -171,7 +175,7 @@ public class QuestionsService {
             if (updateQuestionDTO.topicIds() != null && !updateQuestionDTO.topicIds().isEmpty()) {
                 for (UUID topicId : updateQuestionDTO.topicIds()) {
                     if (!topicRepository.existsById(topicId)) {
-                        throw new IllegalArgumentException("Topic with id " + topicId + " does not exist");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Topic with id " + topicId + " does not exist", null));
                     }
                 }
                 question.get().setTopicIds(updateQuestionDTO.topicIds());
@@ -186,10 +190,10 @@ public class QuestionsService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<Boolean>> deleteQuestion(String questionId) {
+    public ResponseEntity<ApiResponseDTO<Boolean>> deleteQuestion(String questionId, UUID createdBy) {
         try {
             UUID id = UUID.fromString(questionId);
-            if (questionRepository.existsById(id)) {
+            if (questionRepository.existsByIdAndCreatedBy(id, createdBy)) {
                 questionRepository.deleteById(id);
                 return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, true));
             } else {
@@ -205,10 +209,12 @@ public class QuestionsService {
             List<String> topicNames,
             Difficulty difficulty,
             Boolean markedForRevision,
-            int count
+            int count,
+            UUID createdBy
     ) {
         try {
             List<Criteria> filters = new ArrayList<>();
+            filters.add(Criteria.where("createdBy").is(createdBy));
 
             // Difficulty filter
             if (difficulty != null) {
@@ -217,7 +223,7 @@ public class QuestionsService {
 
             // Topics filter (convert names -> ids)
             if (topicNames != null && !topicNames.isEmpty()) {
-                List<UUID> topicIds = topicRepository.findByNameIn(topicNames)
+                List<UUID> topicIds = topicRepository.findByNameInAndCreatedBy(topicNames, createdBy)
                         .stream()
                         .map(Topic::getId)
                         .toList();
@@ -237,9 +243,7 @@ public class QuestionsService {
             }
 
             Criteria criteria = new Criteria();
-            if (!filters.isEmpty()) {
-                criteria.andOperator(filters.toArray(new Criteria[0]));
-            }
+            criteria.andOperator(filters.toArray(new Criteria[0]));
 
             Aggregation agg = Aggregation.newAggregation(
                     Aggregation.match(criteria),
@@ -262,9 +266,9 @@ public class QuestionsService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(String questionId) {
+    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(String questionId, UUID createdBy) {
         try {
-            Question question = questionRepository.findById(UUID.fromString(questionId)).orElse(null);
+            Question question = questionRepository.findByIdAndCreatedBy(UUID.fromString(questionId), createdBy).orElse(null);
             if (question == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Question with id:" + questionId + " does not exist", null));
             }

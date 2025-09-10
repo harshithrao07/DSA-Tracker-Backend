@@ -1,22 +1,37 @@
 package com.harshith.dsa_question_picker.repository;
 
+import com.harshith.dsa_question_picker.dto.user.HeatmapCountDTO;
 import com.harshith.dsa_question_picker.model.Difficulty;
 import com.harshith.dsa_question_picker.model.Question;
+import org.springframework.data.mongodb.repository.Aggregation;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface QuestionRepository extends MongoRepository<Question, UUID> {
-    Optional<Question> findByTitle(String title);
+    Optional<Question> findByIdAndCreatedBy(UUID id, UUID createdBy);
 
-    boolean existsByTitle(String title);
+    boolean existsByTitleAndCreatedBy(String title, UUID createdBy);
 
-    long countBySolved(boolean solved);
+    boolean existsByIdAndCreatedBy(UUID id, UUID createdBy);
 
-    long countByDifficulty(Difficulty difficulty);
+    long countByCreatedBy(UUID createdBy);
 
-    long countByReviseLater(boolean reviseLater);
+    long countByCreatedByAndSolved(UUID createdBy, boolean solved);
+
+    long countByCreatedByAndReviseLater(UUID createdBy, boolean reviseLater);
+
+    @Aggregation(pipeline = {
+            "{ $match: { createdBy: ?0 } }",
+            "{ $project: { allDates: { $concatArrays: [ [\"$createdAt\"], \"$updateHistory\" ] } } }",
+            "{ $unwind: \"$allDates\" }",
+            "{ $group: { _id: { $dateToString: { format: \"%Y-%m-%d\", date: \"$allDates\" } }, count: { $sum: 1 } } }",
+            "{ $sort: { _id: 1 } }"
+    })
+    List<HeatmapCountDTO> getQuestionActivities(UUID createdBy);
+
 }

@@ -1,10 +1,13 @@
 package com.harshith.dsa_question_picker.service;
 
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
+import com.harshith.dsa_question_picker.dto.user.HeatmapActivityDTO;
 import com.harshith.dsa_question_picker.dto.question.QuestionStatsCount;
 import com.harshith.dsa_question_picker.dto.question.QuestionStatsCountDifficulty;
 import com.harshith.dsa_question_picker.dto.question.QuestionStatsCountTopic;
+import com.harshith.dsa_question_picker.dto.user.HeatmapCountDTO;
 import com.harshith.dsa_question_picker.model.Question;
+import com.harshith.dsa_question_picker.repository.NoteRepository;
 import com.harshith.dsa_question_picker.repository.QuestionRepository;
 import com.mongodb.BasicDBObject;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +22,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Stream;
 
 import static com.harshith.dsa_question_picker.utils.Utility.mongoTemplate;
 
@@ -28,15 +33,19 @@ import static com.harshith.dsa_question_picker.utils.Utility.mongoTemplate;
 @RequiredArgsConstructor
 public class DashboardService {
     private final QuestionRepository questionRepository;
+    private final NoteRepository noteRepository;
 
-    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount() {
+    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount(UUID createdBy) {
         try {
-            long totalQuestions = questionRepository.count();
-            long solvedQuestions = questionRepository.countBySolved(true);
-            long remQuestions = questionRepository.countBySolved(false);
-            long markedForRevision = questionRepository.countByReviseLater(true);
+            Criteria baseCriteria = Criteria.where("createdBy").is(createdBy);
+
+            long totalQuestions = questionRepository.countByCreatedBy(createdBy);
+            long solvedQuestions = questionRepository.countByCreatedByAndSolved(createdBy, true);
+            long remQuestions = questionRepository.countByCreatedByAndSolved(createdBy, false);
+            long markedForRevision = questionRepository.countByCreatedByAndReviseLater(createdBy, true);
 
             Aggregation aggBasedOnDifficulty = Aggregation.newAggregation(
+                    Aggregation.match(baseCriteria),
                     Aggregation.group("difficulty")
                             .count().as("totalQuestions")
                             .sum(ConditionalOperators.when(Criteria.where("solved").is(true)).then(1).otherwise(0)).as("solvedQuestions")
@@ -51,6 +60,7 @@ public class DashboardService {
             List<QuestionStatsCountDifficulty> questionStatsCountDifficulties = resultsBasedOnDifficulty.getMappedResults();
 
             Aggregation aggBasedOnTopic = Aggregation.newAggregation(
+                    Aggregation.match(baseCriteria),
                     Aggregation.unwind("topicIds"),
                     Aggregation.group("topicIds", "difficulty")
                             .count().as("totalQuestions")
@@ -91,20 +101,46 @@ public class DashboardService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<Boolean>> resetProgress() {
+    public ResponseEntity<ApiResponseDTO<Boolean>> resetProgress(UUID createdBy) {
         try {
+            Query query = new Query(Criteria.where("createdBy").is(createdBy));
+
             Update update = new Update().set("solved", false);
 
-            mongoTemplate.updateMulti(
-                    new Query(),
-                    update,
-                    Question.class
-            );
+            mongoTemplate.updateMulti(query, update, Question.class);
 
-            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, true));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(new ApiResponseDTO<>(true, null, true));
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDTO<>(false, "An error occurred in the server", false));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", false));
+        }
+    }
+
+    public ResponseEntity<ApiResponseDTO<List<HeatmapActivityDTO>>> getHeatmapActivities(UUID createdBy) {
+        try {
+            List<HeatmapCountDTO> questionResults = questionRepository.getQuestionActivities(createdBy);
+            List<HeatmapCountDTO> noteResults = noteRepository.getNoteActivities(createdBy);
+
+            Map<String, Long> merged = new HashMap<>();
+
+            Stream.concat(questionResults.stream(), noteResults.stream())
+                    .forEach(res -> merged.merge(res._id(), res.count(), Long::sum));
+
+            List<HeatmapActivityDTO> heatmapActivityDTOS = merged.entrySet().stream()
+                    .map(e -> new HeatmapActivityDTO(
+                            Instant.parse(e.getKey() + "T00:00:00Z"),
+                            e.getValue()
+                    ))
+                    .sorted(Comparator.comparing(HeatmapActivityDTO::date))
+                    .toList();
+
+            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, heatmapActivityDTOS));
+        } catch (Exception e) {
+            log.error("An exception has occurred {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
         }
     }
 }

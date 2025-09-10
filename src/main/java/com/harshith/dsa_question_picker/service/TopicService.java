@@ -23,9 +23,9 @@ import static com.harshith.dsa_question_picker.utils.Utility.objectMapper;
 public class TopicService {
     private final TopicRepository topicRepository;
 
-    public ResponseEntity<ApiResponseDTO<List<TopicResponseDTO>>> getAllTopics() {
+    public ResponseEntity<ApiResponseDTO<List<TopicResponseDTO>>> getAllTopics(UUID createdBy) {
         try {
-            List<Topic> topics = topicRepository.findAll();
+            List<Topic> topics = topicRepository.findByCreatedBy(createdBy);
             List<TopicResponseDTO> topicResponseDTOS = topics.stream()
                     .map(topic -> objectMapper.convertValue(topic, TopicResponseDTO.class))
                     .toList();
@@ -37,14 +37,15 @@ public class TopicService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<TopicResponseDTO>> postTopic(@Valid PostTopicDTO postTopicDTO) {
+    public ResponseEntity<ApiResponseDTO<TopicResponseDTO>> postTopic(@Valid PostTopicDTO postTopicDTO, UUID createdBy) {
         try {
-            if (topicRepository.existsByName(postTopicDTO.name())) {
+            if (topicRepository.existsByNameAndCreatedBy(postTopicDTO.name(), createdBy)) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiResponseDTO<>(false, "Topic with the same name already exists", null));
             }
             Topic topic = Topic.builder()
                     .id(UUID.randomUUID())
                     .name(postTopicDTO.name())
+                    .createdBy(createdBy)
                     .build();
 
             topic = topicRepository.save(topic);

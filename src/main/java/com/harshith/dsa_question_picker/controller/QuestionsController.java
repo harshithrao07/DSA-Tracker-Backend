@@ -3,13 +3,16 @@ package com.harshith.dsa_question_picker.controller;
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.question.*;
 import com.harshith.dsa_question_picker.model.Difficulty;
+import com.harshith.dsa_question_picker.security.CustomUserPrinciple;
 import com.harshith.dsa_question_picker.service.QuestionsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @RestController
@@ -26,8 +29,10 @@ public class QuestionsController {
             @RequestParam(name = "difficulty", required = false) String difficulty,
             @RequestParam(name = "status", required = false) String status,
             @RequestParam(name = "sortBy", defaultValue = "createdAt") String sortBy,
-            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir
+            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir,
+            @AuthenticationPrincipal CustomUserPrinciple oAuth2User
     ) {
+        UUID createdBy = oAuth2User.getUser().getId();
         return questionsService.getAllQuestion(
                 page,
                 pageSize,
@@ -36,23 +41,27 @@ public class QuestionsController {
                 difficulty,
                 status,
                 sortBy,
-                sortDir
+                sortDir,
+                createdBy
         );
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> addQuestion(@Valid @RequestBody PostQuestionDTO postQuestionDTO) {
-        return questionsService.addQuestion(postQuestionDTO);
+    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> addQuestion(@Valid @RequestBody PostQuestionDTO postQuestionDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.addQuestion(postQuestionDTO, createdBy);
     }
 
     @PutMapping("/{questionId}")
-    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> updateQuestion(@Valid @RequestBody UpdateQuestionDTO updateQuestionDTO, @PathVariable("questionId") String questionId) {
-        return questionsService.updateQuestion(updateQuestionDTO, questionId);
+    public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> updateQuestion(@Valid @RequestBody UpdateQuestionDTO updateQuestionDTO, @PathVariable("questionId") String questionId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.updateQuestion(updateQuestionDTO, questionId, createdBy);
     }
 
     @DeleteMapping("/{questionId}")
-    public ResponseEntity<ApiResponseDTO<Boolean>> deleteQuestion(@PathVariable("questionId") String questionId) {
-        return questionsService.deleteQuestion(questionId);
+    public ResponseEntity<ApiResponseDTO<Boolean>> deleteQuestion(@PathVariable("questionId") String questionId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.deleteQuestion(questionId, createdBy);
     }
 
     @GetMapping("/random")
@@ -60,14 +69,17 @@ public class QuestionsController {
             @RequestParam(name = "topics", required = false) List<String> topics,
             @RequestParam(name = "difficulty", required = false) Difficulty difficulty,
             @RequestParam(name = "revision", defaultValue = "false") boolean markedForRevision,
-            @RequestParam(name = "count", defaultValue = "1") int count
+            @RequestParam(name = "count", defaultValue = "1") int count,
+            @AuthenticationPrincipal CustomUserPrinciple oAuth2User
     ) {
-        return questionsService.getRandomQuestions(topics, difficulty, markedForRevision, count);
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.getRandomQuestions(topics, difficulty, markedForRevision, count, createdBy);
     }
 
     @GetMapping("/timeline/{questionId}")
-    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(@PathVariable("questionId") String questionId) {
-        return questionsService.getQuestionTimeline(questionId);
+    public ResponseEntity<ApiResponseDTO<QuestionTimelineDTO>> getQuestionTimeline(@PathVariable("questionId") String questionId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.getQuestionTimeline(questionId, createdBy);
     }
 
     @PostMapping("/autofill")

@@ -14,4 +14,5 @@ public class Topic {
     @Id
     private UUID id;
     private String name;
+    private UUID createdBy;
 }

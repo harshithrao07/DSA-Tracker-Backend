@@ -24,6 +24,7 @@ public class Question {
     private boolean reviseLater;
     private List<UUID> topicIds;
     private UUID noteId;
+    private UUID createdBy;
 
     @CreatedDate
     private Instant createdAt;

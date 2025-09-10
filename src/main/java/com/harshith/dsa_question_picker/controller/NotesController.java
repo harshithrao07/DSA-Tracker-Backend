@@ -4,10 +4,12 @@ import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.note.NoteResponseDTO;
 import com.harshith.dsa_question_picker.dto.note.PostNoteDTO;
 import com.harshith.dsa_question_picker.dto.note.UpdateNote;
+import com.harshith.dsa_question_picker.security.CustomUserPrinciple;
 import com.harshith.dsa_question_picker.service.NotesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -19,17 +21,20 @@ public class NotesController {
     private final NotesService notesService;
 
     @PostMapping
-    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid @RequestBody PostNoteDTO postNoteDTO) {
-        return notesService.addNote(postNoteDTO);
+    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid @RequestBody PostNoteDTO postNoteDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return notesService.addNote(postNoteDTO, createdBy);
     }
 
     @GetMapping("/{noteId}")
-    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> getNote(@PathVariable("noteId") String noteId) {
-        return notesService.getNote(noteId);
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> getNote(@PathVariable("noteId") String noteId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return notesService.getNote(noteId, createdBy);
     }
 
     @PutMapping("/{noteId}")
-    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid @RequestBody UpdateNote updateNote, @PathVariable("noteId") String noteId) {
-        return notesService.updateNote(updateNote, noteId);
+    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid @RequestBody UpdateNote updateNote, @PathVariable("noteId") String noteId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return notesService.updateNote(updateNote, noteId, createdBy);
     }
 }

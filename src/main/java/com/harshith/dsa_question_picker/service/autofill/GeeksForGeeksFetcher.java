@@ -2,11 +2,13 @@ package com.harshith.dsa_question_picker.service.autofill;
 
 import com.harshith.dsa_question_picker.dto.question.QuestionAutofillDTO;
 import com.harshith.dsa_question_picker.model.Difficulty;
+import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 
+@Service
 public class GeeksForGeeksFetcher {
 
     // Mock problems for GFG

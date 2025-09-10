@@ -26,9 +26,9 @@ public class NotesService {
     private final NoteRepository noteRepository;
     private final QuestionRepository questionRepository;
 
-    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid PostNoteDTO postNoteDTO) {
+    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid PostNoteDTO postNoteDTO, UUID createdBy) {
         try {
-            Question question = questionRepository.findById(postNoteDTO.questionId()).orElse(null);
+            Question question = questionRepository.findByIdAndCreatedBy(postNoteDTO.questionId(), createdBy).orElse(null);
             if (question == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Question with id:" + postNoteDTO.questionId() + " does not exist", null));
             }
@@ -37,6 +37,7 @@ public class NotesService {
                     .id(UUID.randomUUID())
                     .questionId(postNoteDTO.questionId())
                     .text(postNoteDTO.text())
+                    .createdBy(createdBy)
                     .build();
 
             note = noteRepository.save(note);
@@ -51,9 +52,9 @@ public class NotesService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> getNote(String noteId) {
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> getNote(String noteId, UUID createdBy) {
         try {
-            Note note = noteRepository.findById(UUID.fromString(noteId)).orElse(null);
+            Note note = noteRepository.findByIdAndCreatedBy(UUID.fromString(noteId), createdBy).orElse(null);
             if (note == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Note with id:" + noteId + " does not exist", null));
             }
@@ -66,9 +67,9 @@ public class NotesService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid UpdateNote updateNote, String noteId) {
+    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid UpdateNote updateNote, String noteId, UUID createdBy) {
         try {
-            Note note = noteRepository.findById(UUID.fromString(noteId)).orElse(null);
+            Note note = noteRepository.findByIdAndCreatedBy(UUID.fromString(noteId), createdBy).orElse(null);
             if (note == null) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDTO<>(false, "Note with id:" + noteId + " does not exist", null));
             }

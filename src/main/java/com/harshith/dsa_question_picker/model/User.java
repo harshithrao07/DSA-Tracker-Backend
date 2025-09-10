@@ -4,7 +4,6 @@ import lombok.Builder;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -12,17 +11,18 @@ import java.util.UUID;
 
 @Data
 @Builder
-@Document(collection = "notes")
-public class Note {
+@Document(collection = "users")
+public class User {
     @Id
     private UUID id;
-    private UUID questionId;
-    private String text;
-    private UUID createdBy;
+
+    private String email;
+    private String name;
+    private String pictureUrl;
+
+    private String provider;
+    private String providerId;
 
     @CreatedDate
     private Instant createdAt;
-
-    @LastModifiedDate
-    private Instant updatedAt;
 }
