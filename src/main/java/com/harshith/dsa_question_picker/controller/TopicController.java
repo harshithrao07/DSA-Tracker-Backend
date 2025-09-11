@@ -29,7 +29,7 @@ public class TopicController {
     @PostMapping
     public ResponseEntity<ApiResponseDTO<TopicResponseDTO>> postTopic(@Valid @RequestBody PostTopicDTO postTopicDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
         UUID createdBy = oAuth2User.getUser().getId();
-        return topicService.postTopic(postTopicDTO);
+        return topicService.postTopic(postTopicDTO, createdBy);
     }
 
 }

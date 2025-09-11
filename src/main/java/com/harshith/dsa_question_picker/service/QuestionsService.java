@@ -291,4 +291,14 @@ public class QuestionsService {
                     .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
         }
     }
+
+    public ResponseEntity<ApiResponseDTO<Boolean>> checkIfQuestionExists(@Valid CheckQuestionExistsDTO checkQuestionExistsDTO, UUID createdBy) {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, questionRepository.existsByTitleAndCreatedBy(checkQuestionExistsDTO.title(), createdBy)));
+        } catch (Exception e) {
+            log.error("An exception has occurred {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
+        }
+    }
 }

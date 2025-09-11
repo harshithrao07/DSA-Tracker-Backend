@@ -64,6 +64,12 @@ public class QuestionsController {
         return questionsService.deleteQuestion(questionId, createdBy);
     }
 
+    @PostMapping("/checkIfExists")
+    public ResponseEntity<ApiResponseDTO<Boolean>> checkQuestionExists(@Valid @RequestBody CheckQuestionExistsDTO checkQuestionExistsDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.checkIfQuestionExists(checkQuestionExistsDTO, createdBy);
+    }
+
     @GetMapping("/random")
     public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getRandomQuestions(
             @RequestParam(name = "topics", required = false) List<String> topics,
