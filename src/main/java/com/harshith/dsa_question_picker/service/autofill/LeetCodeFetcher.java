@@ -18,9 +18,18 @@ public class LeetCodeFetcher {
         try {
             // Extract slug from URL: https://leetcode.com/problems/two-sum/ -> "two-sum"
             String[] parts = link.split("/");
-            String slug = parts[parts.length - 1].isBlank()
-                    ? parts[parts.length - 2]
-                    : parts[parts.length - 1];
+            String slug = null;
+            for (int i = 0; i < parts.length; i++) {
+                if ("problems".equals(parts[i]) && i + 1 < parts.length) {
+                    slug = parts[i + 1]; // the real slug
+                    break;
+                }
+            }
+
+            if (slug == null || slug.isBlank()) {
+                throw new IllegalArgumentException("Invalid LeetCode problem URL: " + link);
+            }
+
 
             String query = """
                         query getQuestionDetail($titleSlug: String!) {

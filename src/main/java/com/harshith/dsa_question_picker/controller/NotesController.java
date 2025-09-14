@@ -21,7 +21,7 @@ public class NotesController {
     private final NotesService notesService;
 
     @PostMapping
-    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid @RequestBody PostNoteDTO postNoteDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> addNote(@Valid @RequestBody PostNoteDTO postNoteDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
         UUID createdBy = oAuth2User.getUser().getId();
         return notesService.addNote(postNoteDTO, createdBy);
     }
@@ -33,7 +33,7 @@ public class NotesController {
     }
 
     @PutMapping("/{noteId}")
-    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid @RequestBody UpdateNote updateNote, @PathVariable("noteId") String noteId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> updateNote(@Valid @RequestBody UpdateNote updateNote, @PathVariable("noteId") String noteId, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
         UUID createdBy = oAuth2User.getUser().getId();
         return notesService.updateNote(updateNote, noteId, createdBy);
     }

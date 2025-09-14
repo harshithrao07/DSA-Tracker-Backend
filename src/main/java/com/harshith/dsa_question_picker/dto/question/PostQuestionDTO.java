@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
-import java.util.UUID;
 
 public record PostQuestionDTO(
         @NotBlank(message = "Problem Title cannot be empty")
@@ -18,7 +17,7 @@ public record PostQuestionDTO(
         boolean reviseLater,
 
         @NotEmpty(message = "At least one topic must be provided")
-        List<@NotBlank(message = "Topic ID cannot be blank") UUID> topicIds,
+        List<@NotBlank(message = "Topic ID cannot be blank") String> topics,
 
         @NotNull(message = "Problem Difficulty must be provided")
         Difficulty difficulty,

@@ -1,5 +1,6 @@
 package com.harshith.dsa_question_picker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.note.NoteResponseDTO;
 import com.harshith.dsa_question_picker.dto.note.PostNoteDTO;
@@ -17,16 +18,15 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
-import static com.harshith.dsa_question_picker.utils.Utility.objectMapper;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class NotesService {
     private final NoteRepository noteRepository;
     private final QuestionRepository questionRepository;
+    private final ObjectMapper objectMapper;
 
-    public ResponseEntity<ApiResponseDTO<UUID>> addNote(@Valid PostNoteDTO postNoteDTO, UUID createdBy) {
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> addNote(@Valid PostNoteDTO postNoteDTO, UUID createdBy) {
         try {
             Question question = questionRepository.findByIdAndCreatedBy(postNoteDTO.questionId(), createdBy).orElse(null);
             if (question == null) {
@@ -41,11 +41,12 @@ public class NotesService {
                     .build();
 
             note = noteRepository.save(note);
+            NoteResponseDTO noteResponseDTO = objectMapper.convertValue(note, NoteResponseDTO.class);
 
             question.setNoteId(note.getId());
             questionRepository.save(question);
 
-            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, note.getId()));
+            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, noteResponseDTO));
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
@@ -67,7 +68,7 @@ public class NotesService {
         }
     }
 
-    public ResponseEntity<ApiResponseDTO<UUID>> updateNote(@Valid UpdateNote updateNote, String noteId, UUID createdBy) {
+    public ResponseEntity<ApiResponseDTO<NoteResponseDTO>> updateNote(@Valid UpdateNote updateNote, String noteId, UUID createdBy) {
         try {
             Note note = noteRepository.findByIdAndCreatedBy(UUID.fromString(noteId), createdBy).orElse(null);
             if (note == null) {
@@ -76,7 +77,8 @@ public class NotesService {
 
             note.setText(updateNote.text());
             note = noteRepository.save(note);
-            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, note.getId()));
+            NoteResponseDTO noteResponseDTO = objectMapper.convertValue(note, NoteResponseDTO.class);
+            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, noteResponseDTO));
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDTO<>(false, "An error occurred in the server", null));

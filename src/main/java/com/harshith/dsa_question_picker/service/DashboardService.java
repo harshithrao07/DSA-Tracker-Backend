@@ -12,6 +12,7 @@ import com.harshith.dsa_question_picker.repository.QuestionRepository;
 import com.mongodb.BasicDBObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
@@ -26,14 +27,13 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static com.harshith.dsa_question_picker.utils.Utility.mongoTemplate;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
     private final QuestionRepository questionRepository;
     private final NoteRepository noteRepository;
+    private final MongoTemplate mongoTemplate;
 
     public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount(UUID createdBy) {
         try {

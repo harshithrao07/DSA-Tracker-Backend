@@ -1,5 +1,6 @@
 package com.harshith.dsa_question_picker.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.topic.PostTopicDTO;
 import com.harshith.dsa_question_picker.dto.topic.TopicResponseDTO;
@@ -12,23 +13,26 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-
-import static com.harshith.dsa_question_picker.utils.Utility.objectMapper;
 
 @Slf4j
 @RequiredArgsConstructor
 @Service
 public class TopicService {
     private final TopicRepository topicRepository;
+    private final ObjectMapper objectMapper;
 
     public ResponseEntity<ApiResponseDTO<List<TopicResponseDTO>>> getAllTopics(UUID createdBy) {
         try {
             List<Topic> topics = topicRepository.findByCreatedBy(createdBy);
+
             List<TopicResponseDTO> topicResponseDTOS = topics.stream()
+                    .sorted(Comparator.comparing(Topic::getName, String.CASE_INSENSITIVE_ORDER))
                     .map(topic -> objectMapper.convertValue(topic, TopicResponseDTO.class))
                     .toList();
+
 
             return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, topicResponseDTOS));
         } catch (Exception e) {
