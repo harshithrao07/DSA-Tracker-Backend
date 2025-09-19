@@ -3,13 +3,11 @@ package com.harshith.dsa_question_picker.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.question.*;
-import com.harshith.dsa_question_picker.model.Difficulty;
-import com.harshith.dsa_question_picker.model.Note;
-import com.harshith.dsa_question_picker.model.Question;
-import com.harshith.dsa_question_picker.model.Topic;
+import com.harshith.dsa_question_picker.model.*;
 import com.harshith.dsa_question_picker.repository.NoteRepository;
 import com.harshith.dsa_question_picker.repository.QuestionRepository;
 import com.harshith.dsa_question_picker.repository.TopicRepository;
+import com.harshith.dsa_question_picker.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +37,7 @@ public class QuestionsService {
     private final NoteRepository noteRepository;
     private final TopicRepository topicRepository;
     private final QuestionAutofillService autofillService;
+    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final MongoTemplate mongoTemplate;
 
@@ -55,12 +54,16 @@ public class QuestionsService {
             }
 
             if (topics != null && !topics.isEmpty()) {
-                topics.forEach(topic -> {
-                    if (topicRepository.existsByNameAndCreatedBy(topic, createdBy)) {
-                        Optional<Topic> topicOptional = topicRepository.findByNameAndCreatedBy(topic, createdBy);
-                        topicOptional.ifPresent(value -> query.addCriteria(Criteria.where("topicIds").in(value.getId())));
-                    }
-                });
+                List<UUID> topicIds = topics.stream()
+                        .filter(topic -> topicRepository.existsByNameAndCreatedBy(topic, createdBy))
+                        .map(topic -> topicRepository.findByNameAndCreatedBy(topic, createdBy))
+                        .filter(Optional::isPresent)
+                        .map(opt -> opt.get().getId())
+                        .toList();
+
+                if (!topicIds.isEmpty()) {
+                    query.addCriteria(Criteria.where("topicIds").in(topicIds));
+                }
             }
 
             if (difficulty != null && !difficulty.isBlank()) {
@@ -275,39 +278,31 @@ public class QuestionsService {
 
     public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getRandomQuestions(
             List<String> topicNames,
-            Difficulty difficulty,
-            Boolean markedForRevision,
+            String difficulty,
             int count,
             UUID createdBy
     ) {
         try {
             List<Criteria> filters = new ArrayList<>();
             filters.add(Criteria.where("createdBy").is(createdBy));
+            filters.add(Criteria.where("solved").is(false));
 
             // Difficulty filter
-            if (difficulty != null) {
-                filters.add(Criteria.where("difficulty").is(difficulty));
+            if (difficulty != null && !difficulty.isBlank()) {
+                filters.add(Criteria.where("difficulty").is(Difficulty.valueOf(difficulty.toUpperCase())));
             }
 
-            // Topics filter (convert names -> ids)
             if (topicNames != null && !topicNames.isEmpty()) {
-                List<UUID> topicIds = topicRepository.findByNameInAndCreatedBy(topicNames, createdBy)
-                        .stream()
-                        .map(Topic::getId)
+                List<UUID> topicIds = topicNames.stream()
+                        .filter(topic -> topicRepository.existsByNameAndCreatedBy(topic, createdBy))
+                        .map(topic -> topicRepository.findByNameAndCreatedBy(topic, createdBy))
+                        .filter(Optional::isPresent)
+                        .map(opt -> opt.get().getId())
                         .toList();
 
-                if (topicIds.isEmpty()) {
-                    return ResponseEntity.ok(
-                            new ApiResponseDTO<>(true, "No topics matched", List.of())
-                    );
+                if (!topicIds.isEmpty()) {
+                    filters.add(Criteria.where("topicIds").in(topicIds));
                 }
-
-                filters.add(Criteria.where("topicIds").in(topicIds));
-            }
-
-            // ReviseLater filter
-            if (markedForRevision != null) {
-                filters.add(Criteria.where("reviseLater").is(markedForRevision));
             }
 
             Criteria criteria = new Criteria();
@@ -321,12 +316,38 @@ public class QuestionsService {
             AggregationResults<Question> results =
                     mongoTemplate.aggregate(agg, "questions", Question.class);
 
-            List<QuestionResponseDTO> response = results.getMappedResults()
-                    .stream()
-                    .map(question -> objectMapper.convertValue(question, QuestionResponseDTO.class))
+            List<Question> questions = results.getMappedResults();
+
+            Set<UUID> allTopicIds = questions.stream()
+                    .flatMap(q -> q.getTopicIds().stream())
+                    .collect(Collectors.toSet());
+
+            Map<UUID, String> topicMap = topicRepository.findAllById(allTopicIds).stream()
+                    .collect(Collectors.toMap(Topic::getId, Topic::getName));
+
+            List<QuestionResponseDTO> questionResponseDTOS = questions.stream()
+                    .map(question -> {
+                        List<String> topics = question.getTopicIds().stream()
+                                .map(topicMap::get) // lookup from pre-fetched map
+                                .filter(Objects::nonNull)
+                                .toList();
+
+                        return new QuestionResponseDTO(
+                                question.getId(),
+                                question.getLink(),
+                                question.getTitle(),
+                                question.getDifficulty(),
+                                question.isSolved(),
+                                question.isReviseLater(),
+                                topics,
+                                question.getNoteId(),
+                                question.getCreatedAt(),
+                                question.getSolveHistory()
+                        );
+                    })
                     .toList();
 
-            return ResponseEntity.ok(new ApiResponseDTO<>(true, null, response));
+            return ResponseEntity.ok(new ApiResponseDTO<>(true, null, questionResponseDTOS));
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -363,6 +384,45 @@ public class QuestionsService {
     public ResponseEntity<ApiResponseDTO<Boolean>> checkIfQuestionExists(@Valid CheckQuestionExistsDTO checkQuestionExistsDTO, UUID createdBy) {
         try {
             return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, questionRepository.existsByTitleAndCreatedBy(checkQuestionExistsDTO.title(), createdBy)));
+        } catch (Exception e) {
+            log.error("An exception has occurred {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "An error occurred in the server", null));
+        }
+    }
+
+    public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getQuestionsBasedOnIds(@Valid QuestionBasedOnIdsDTO questionBasedOnIdsDTO, UUID createdBy) {
+        try {
+            List<Question> questions = questionRepository.findAllById(questionBasedOnIdsDTO.questionsIds());
+            Set<UUID> allTopicIds = questions.stream()
+                    .flatMap(q -> q.getTopicIds().stream())
+                    .collect(Collectors.toSet());
+
+            Map<UUID, String> topicMap = topicRepository.findAllById(allTopicIds).stream()
+                    .collect(Collectors.toMap(Topic::getId, Topic::getName));
+
+            List<QuestionResponseDTO> questionResponseDTOS = questions.stream()
+                    .map(question -> {
+                        List<String> topicNames = question.getTopicIds().stream()
+                                .map(topicMap::get) // lookup from pre-fetched map
+                                .filter(Objects::nonNull)
+                                .toList();
+
+                        return new QuestionResponseDTO(
+                                question.getId(),
+                                question.getLink(),
+                                question.getTitle(),
+                                question.getDifficulty(),
+                                question.isSolved(),
+                                question.isReviseLater(),
+                                topicNames,
+                                question.getNoteId(),
+                                question.getCreatedAt(),
+                                question.getSolveHistory()
+                        );
+                    })
+                    .toList();
+            return ResponseEntity.status(HttpStatus.OK).body(new ApiResponseDTO<>(true, null, questionResponseDTOS));
         } catch (Exception e) {
             log.error("An exception has occurred {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -47,6 +47,12 @@ public class QuestionsController {
         );
     }
 
+    @PostMapping("/getQuestionsBasedOnIds")
+    public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getQuestionsBasedOnIds(@Valid @RequestBody QuestionBasedOnIdsDTO questionBasedOnIdsDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
+        UUID createdBy = oAuth2User.getUser().getId();
+        return questionsService.getQuestionsBasedOnIds(questionBasedOnIdsDTO, createdBy);
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponseDTO<QuestionResponseDTO>> addQuestion(@Valid @RequestBody PostQuestionDTO postQuestionDTO, @AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
         UUID createdBy = oAuth2User.getUser().getId();
@@ -74,13 +80,12 @@ public class QuestionsController {
     @GetMapping("/random")
     public ResponseEntity<ApiResponseDTO<List<QuestionResponseDTO>>> getRandomQuestions(
             @RequestParam(name = "topics", required = false) List<String> topics,
-            @RequestParam(name = "difficulty", required = false) Difficulty difficulty,
-            @RequestParam(name = "revision", defaultValue = "false") boolean markedForRevision,
+            @RequestParam(name = "difficulty", required = false) String difficulty,
             @RequestParam(name = "count", defaultValue = "1") int count,
             @AuthenticationPrincipal CustomUserPrinciple oAuth2User
     ) {
         UUID createdBy = oAuth2User.getUser().getId();
-        return questionsService.getRandomQuestions(topics, difficulty, markedForRevision, count, createdBy);
+        return questionsService.getRandomQuestions(topics, difficulty, count, createdBy);
     }
 
     @GetMapping("/timeline/{questionId}")

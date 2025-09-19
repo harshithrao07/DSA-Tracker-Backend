@@ -27,7 +27,7 @@ public interface QuestionRepository extends MongoRepository<Question, UUID> {
 
     @Aggregation(pipeline = {
             "{ $match: { createdBy: ?0 } }",
-            "{ $project: { allDates: { $concatArrays: [ [\"$createdAt\"], \"$updateHistory\" ] } } }",
+            "{ $project: { allDates: { $concatArrays: [ [\"$createdAt\"], { $ifNull: [\"$solveHistory\", []] } ] } } }",
             "{ $unwind: \"$allDates\" }",
             "{ $group: { _id: { $dateToString: { format: \"%Y-%m-%d\", date: \"$allDates\" } }, count: { $sum: 1 } } }",
             "{ $sort: { _id: 1 } }"

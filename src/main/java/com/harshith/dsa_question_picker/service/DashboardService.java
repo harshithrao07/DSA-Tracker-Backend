@@ -23,7 +23,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -76,8 +77,11 @@ public class DashboardService {
                                             .append("solvedQuestions", "$solvedQuestions")
                                             .append("remQuestions", "$remQuestions")
                             ).as("questionStatsCountDifficulties"),
+                    Aggregation.lookup("topics", "_id", "_id", "topicInfo"),
+                    Aggregation.unwind("topicInfo", true),
                     Aggregation.project("totalQuestions", "solvedQuestions", "remQuestions", "questionStatsCountDifficulties")
                             .and("_id").as("id")
+                            .and("topicInfo.name").as("name")
             );
 
             AggregationResults<QuestionStatsCountTopic> resultsBasedOnTopic =
@@ -128,9 +132,12 @@ public class DashboardService {
             Stream.concat(questionResults.stream(), noteResults.stream())
                     .forEach(res -> merged.merge(res._id(), res.count(), Long::sum));
 
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+
             List<HeatmapActivityDTO> heatmapActivityDTOS = merged.entrySet().stream()
                     .map(e -> new HeatmapActivityDTO(
-                            Instant.parse(e.getKey() + "T00:00:00Z"),
+                            LocalDate.parse(e.getKey())
+                                    .format(formatter),     
                             e.getValue()
                     ))
                     .sorted(Comparator.comparing(HeatmapActivityDTO::date))
