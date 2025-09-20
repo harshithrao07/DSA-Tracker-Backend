@@ -20,7 +20,6 @@ public class SessionConfig {
             // Configure the JSESSIONID cookie
             var cookieConfig = servletContext.getSessionCookieConfig();
             cookieConfig.setMaxAge((int) SESSION_TIMEOUT.getSeconds()); // persist cookie for 7 days
-            cookieConfig.setHttpOnly(true);
             cookieConfig.setSecure(true); // only if your app runs over HTTPS
             cookieConfig.setName("JSESSIONID");
         };
