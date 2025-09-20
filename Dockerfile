@@ -1,4 +1,6 @@
-# Use a lightweight JDK base image
+# =========================
+# Build Stage
+# =========================
 FROM eclipse-temurin:17-jdk-alpine AS build
 
 # Set working directory
@@ -8,7 +10,7 @@ WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 
-# Download dependencies
+# Download dependencies offline
 RUN ./mvnw dependency:go-offline
 
 # Copy source code
@@ -18,7 +20,7 @@ COPY src ./src
 RUN ./mvnw clean package -DskipTests
 
 # =========================
-# Run stage
+# Run Stage
 # =========================
 FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
@@ -26,5 +28,8 @@ WORKDIR /app
 # Copy jar from build stage
 COPY --from=build /app/target/dsa-question-picker-0.0.1-SNAPSHOT.jar app.jar
 
-# Run the jar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Expose port (Render uses PORT environment variable)
+EXPOSE 8081
+
+# Run the jar and read port from environment variable
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8081}"]
