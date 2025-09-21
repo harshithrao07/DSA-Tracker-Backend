@@ -45,7 +45,7 @@ public class OAuth2Service extends DefaultOAuth2UserService {
         }
 
 
-        String finalName = name;
+        String finalName = name != null ? name : providerId;
         User user = userRepository
                 .findByProviderAndProviderId(provider, providerId)
                 .orElseGet(() -> {
