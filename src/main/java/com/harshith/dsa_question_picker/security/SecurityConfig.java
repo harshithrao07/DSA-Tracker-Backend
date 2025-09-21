@@ -7,20 +7,42 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 @Configuration
 @EnableWebSecurity(debug = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final OAuth2Service oAuth2Service;
-    private final Environment environment;
+    private final TokenProvider tokenProvider;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${frontend.url}")
     private String frontendUrl;
+
+    @Bean
+    public AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler() {
+        return (request, response, authentication) -> {
+            String token = tokenProvider.createToken(authentication);
+            long tokenExpirySeconds = 7 * 24 * 60 * 60;
+
+            // Create a secure HttpOnly cookie
+            String cookie = String.format(
+                    "auth_token=%s; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=%d",
+                    token, tokenExpirySeconds
+            );
+
+            response.setHeader("Set-Cookie", cookie);
+            response.sendRedirect(frontendUrl + "/dashboard");
+        };
+    }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(@NotNull HttpSecurity http) throws Exception {
@@ -33,15 +55,17 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
-                        .defaultSuccessUrl(frontendUrl + "/dashboard", true)
+                        .successHandler(oAuth2AuthenticationSuccessHandler())
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(oAuth2Service)
                         )
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
-                        .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
+                        .addLogoutHandler((request, response, authentication) -> {
+                            response.setHeader("Set-Cookie",
+                                    "auth_token=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0;");
+                        })
                         .logoutSuccessHandler((request, response, authentication) -> {
                             response.setStatus(HttpServletResponse.SC_OK);
                             response.setContentType("application/json");
@@ -55,6 +79,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Unauthorized\"}");
                         })
                 );
+        http.addFilterBefore(jwtAuthenticationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
