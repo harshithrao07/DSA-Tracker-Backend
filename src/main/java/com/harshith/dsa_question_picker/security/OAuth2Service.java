@@ -114,6 +114,7 @@ public class OAuth2Service {
 
         ResponseCookie cookie = ResponseCookie.from("token", jwtToken)
                 .maxAge(maxAgeInSeconds)
+                .domain("dsa-tracker-backend-tbmg.onrender.com")
                 .httpOnly(false)
                 .secure(true)
                 .sameSite("None")

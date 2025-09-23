@@ -76,6 +76,7 @@ public class OAuth2Controller {
             // Build a response cookie with an empty value and maxAge of 0
             ResponseCookie cookie = ResponseCookie.from("token", "")
                     .maxAge(0)
+                    .domain("dsa-tracker-backend-tbmg.onrender.com")
                     .httpOnly(false)
                     .secure(true)
                     .sameSite("None")
