@@ -30,6 +30,9 @@ public class OAuth2Service {
     @Value("${jwt.expiration.ms}")
     private long jwtExpirationMs;
 
+    @Value("${frontend.url}")
+    private String frontendUrl;
+
     public ResponseEntity<?> loadUser(String userInfoUrl, OAuth2Provider provider) {
         ResponseEntity<Map> userInfoResponse = restTemplate.getForEntity(userInfoUrl, Map.class);
         if (userInfoResponse.getStatusCode() == HttpStatus.OK) {
@@ -120,7 +123,7 @@ public class OAuth2Service {
         // Add cookie + redirect
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
-        headers.add(HttpHeaders.LOCATION, "http://localhost:3000/dashboard");
+        headers.add(HttpHeaders.LOCATION, frontendUrl + "/dashboard");
 
         return ResponseEntity.status(302).headers(headers).build();
     }
