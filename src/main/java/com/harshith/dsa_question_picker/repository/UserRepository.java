@@ -7,5 +7,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends MongoRepository<User, UUID> {
-    Optional<User> findByProviderAndProviderId(String provider, String providerId);
+    Optional<User> findByProviderId(String providerId);
+    Optional<User> findByEmail(String email);
 }

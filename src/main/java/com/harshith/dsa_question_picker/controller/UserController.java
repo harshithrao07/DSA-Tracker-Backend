@@ -3,7 +3,7 @@ package com.harshith.dsa_question_picker.controller;
 import com.harshith.dsa_question_picker.dto.ApiResponseDTO;
 import com.harshith.dsa_question_picker.dto.user.HeatmapActivityDTO;
 import com.harshith.dsa_question_picker.dto.question.QuestionStatsCount;
-import com.harshith.dsa_question_picker.security.CustomUserPrinciple;
+import com.harshith.dsa_question_picker.model.User;
 import com.harshith.dsa_question_picker.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,25 +22,25 @@ public class UserController {
     private final DashboardService dashboardService;
 
     @GetMapping("/me")
-    public Object getCurrentUserDetails(@AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
-        return oAuth2User.getUser();
+    public Object getCurrentUserDetails(@AuthenticationPrincipal User oAuth2User) {
+        return oAuth2User;
     }
 
     @GetMapping("/stats-count")
-    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount(@AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
-        UUID createdBy = oAuth2User.getUser().getId();
+    public ResponseEntity<ApiResponseDTO<QuestionStatsCount>> getQuestionStatsCount(@AuthenticationPrincipal User oAuth2User) {
+        UUID createdBy = oAuth2User.getId();
         return dashboardService.getQuestionStatsCount(createdBy);
     }
 
     @GetMapping("/reset-progress")
-    public ResponseEntity<ApiResponseDTO<Boolean>> resetProgress(@AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
-        UUID createdBy = oAuth2User.getUser().getId();
+    public ResponseEntity<ApiResponseDTO<Boolean>> resetProgress(@AuthenticationPrincipal User oAuth2User) {
+        UUID createdBy = oAuth2User.getId();
         return dashboardService.resetProgress(createdBy);
     }
 
     @GetMapping("/heatmap-activities")
-    public ResponseEntity<ApiResponseDTO<List<HeatmapActivityDTO>>> getHeatmapActivities(@AuthenticationPrincipal CustomUserPrinciple oAuth2User) {
-        UUID createdBy = oAuth2User.getUser().getId();
+    public ResponseEntity<ApiResponseDTO<List<HeatmapActivityDTO>>> getHeatmapActivities(@AuthenticationPrincipal User oAuth2User) {
+        UUID createdBy = oAuth2User.getId();
         return dashboardService.getHeatmapActivities(createdBy);
     }
 
