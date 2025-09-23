@@ -107,8 +107,10 @@ public class OAuth2Service {
 
         String jwtToken = jwtService.createToken(claims, subject);
 
+        long maxAgeInSeconds = jwtExpirationMs / 1000;
+
         ResponseCookie cookie = ResponseCookie.from("token", jwtToken)
-                .maxAge(jwtExpirationMs)
+                .maxAge(maxAgeInSeconds)
                 .httpOnly(false)
                 .secure(true)
                 .sameSite("None")
