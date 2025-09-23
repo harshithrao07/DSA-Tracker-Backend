@@ -69,30 +69,4 @@ public class OAuth2Controller {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-    @GetMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletResponse response) {
-        try {
-            // Build a response cookie with an empty value and maxAge of 0
-            ResponseCookie cookie = ResponseCookie.from("token", "")
-                    .maxAge(0)
-                    .domain("dsa-tracker-backend-tbmg.onrender.com")
-                    .httpOnly(false)
-                    .secure(true)
-                    .sameSite("None")
-                    .path("/")
-                    .build();
-
-            // Clear the security context
-            SecurityContextHolder.clearContext();
-
-            // Add the cookie to the response headers
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                    .body("Logout successful");
-        } catch (Exception e) {
-            log.error("Exception occurred while handleGoogleCallback ", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
 }

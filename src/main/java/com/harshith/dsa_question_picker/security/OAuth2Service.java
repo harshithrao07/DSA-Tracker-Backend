@@ -27,9 +27,6 @@ public class OAuth2Service {
     private final RestTemplate restTemplate;
     private final JwtService jwtService;
 
-    @Value("${jwt.expiration.ms}")
-    private long jwtExpirationMs;
-
     @Value("${frontend.url}")
     private String frontendUrl;
 
@@ -110,23 +107,13 @@ public class OAuth2Service {
 
         String jwtToken = jwtService.createToken(claims, subject);
 
-        long maxAgeInSeconds = jwtExpirationMs / 1000;
+        String redirectUrl = frontendUrl + "/dashboard?token=" + jwtToken;
 
-        ResponseCookie cookie = ResponseCookie.from("token", jwtToken)
-                .maxAge(maxAgeInSeconds)
-                .domain("dsa-tracker-backend-tbmg.onrender.com")
-                .httpOnly(false)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
+        return ResponseEntity
+                .status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, redirectUrl)
                 .build();
 
-        // Add cookie + redirect
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
-        headers.add(HttpHeaders.LOCATION, frontendUrl + "/dashboard");
-
-        return ResponseEntity.status(302).headers(headers).build();
     }
 
     public String getAccessToken(String tokenEndpoint, String code,
